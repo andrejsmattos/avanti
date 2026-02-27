@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Saudações</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        /* Pequeno ajuste para o spinner */
+        .spinner {
+            border-top-color: #3498db;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen font-sans">
+
+    <div 
+        x-data="greetingApp()" 
+        x-init="fetchData()"
+        class="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-2xl mx-auto space-y-8"
+    >
+        <div class="text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-cyan-400 mb-4">Gerador de Saudações</h1>
+            
+            <div x-show="isLoading" class="flex justify-center items-center h-16">
+                <div class="spinner w-12 h-12 border-4 border-gray-600 rounded-full"></div>
+            </div>
+
+            <div x-show="!isLoading && greeting && personName" x-transition>
+                <p class="text-2xl md:text-3xl bg-gray-700 p-4 rounded-lg">
+                    <span x-text="greeting"></span>, <strong x-text="personName"></strong>!
+                </p>
+            </div>
+            
+            <button 
+                @click="fetchData()"
+                class="mt-6 bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-lg transition-transform transform hover:scale-105"
+            >
+                Gerar Nova Saudação
+            </button>
+        </div>
+
+        <hr class="border-gray-700">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            <form @submit.prevent="addPerson" class="space-y-4">
+                <h2 class="text-2xl font-semibold text-emerald-400">Cadastrar Pessoa</h2>
+                <div>
+                    <label for="new-person" class="block mb-2 text-sm font-medium">Nome da Pessoa:</label>
+                    <input 
+                        id="new-person"
+                        type="text" 
+                        x-model="newPersonName"
+                        placeholder="Ex: Maria"
+                        required
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:ring-emerald-500 focus:border-emerald-500"
+                    >
+                </div>
+                <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 font-bold py-2 px-4 rounded-lg transition">
+                    Cadastrar
+                </button>
+            </form>
+
+            <form @submit.prevent="addGreeting" class="space-y-4">
+                <h2 class="text-2xl font-semibold text-amber-400">Cadastrar Saudação</h2>
+                <div>
+                    <label for="new-greeting" class="block mb-2 text-sm font-medium">Nova Saudação:</label>
+                    <input 
+                        id="new-greeting"
+                        type="text" 
+                        x-model="newGreetingText"
+                        placeholder="Ex: E aí, tudo certo?"
+                        required
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:ring-amber-500 focus:border-amber-500"
+                    >
+                </div>
+                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 font-bold py-2 px-4 rounded-lg transition">
+                    Cadastrar
+                </button>
+            </form>
+        </div>
+
+        <div x-show="feedback.message" x-transition class="mt-4 p-4 rounded-lg text-center font-semibold"
+             :class="{
+                'bg-green-500/20 text-green-300': feedback.type === 'success',
+                'bg-red-500/20 text-red-300': feedback.type === 'error'
+             }"
+             x-text="feedback.message">
+        </div>
+    </div>
+
+    <script>
+        function greetingApp() {
+            return {
+                // --- Estado (State) ---
+                greeting: '',
+                personName: '',
+                isLoading: true,
+                newPersonName: '',
+                newGreetingText: '',
+                feedback: { message: '', type: '' },
+
+                // --- Métodos (Methods) ---
+
+                // Busca os dados iniciais das duas APIs simultaneamente
+                fetchData() {
+                    this.isLoading = true;
+                    this.clearFeedback();
+
+                    const greetingUrl = 'http://localhost:8080/api/saudacoes/aleatorio';
+                    const personUrl = 'http://localhost:8000/pessoas/aleatoria';
+
+                    Promise.all([
+                        fetch(greetingUrl),
+                        fetch(personUrl)
+                    ])
+                    .then(responses => {
+                        // Verifica se ambas as respostas foram bem-sucedidas
+                        if (!responses[0].ok) throw new Error(`Erro na API de Saudações: ${responses[0].statusText}`);
+                        if (!responses[1].ok) throw new Error(`Erro na API de Pessoas: ${responses[1].statusText}`);
+                        
+                        // Converte as duas respostas para JSON
+                        return Promise.all(responses.map(res => res.json()));
+                    })
+                    .then(([greetingData, personData]) => {
+                        // Trata o JSON e atualiza o estado do componente
+                        this.greeting = greetingData.saudação;
+                        this.personName = personData.nome;
+                    })
+                    .catch(error => {
+                        console.error('Falha ao buscar dados:', error);
+                        this.showFeedback(`Erro ao carregar dados: ${error.message}`, 'error');
+                        // Define valores padrão em caso de erro
+                        this.greeting = "Oops";
+                        this.personName = "algo deu errado";
+                    })
+                    .finally(() => {
+                        this.isLoading = false;
+                    });
+                },
+
+                // Envia uma nova pessoa para a API
+                addPerson() {
+                    if (!this.newPersonName.trim()) return; // Não envia se estiver vazio
+                    this.clearFeedback();
+
+                    fetch('http://localhost:8000/pessoas', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nome: this.newPersonName })
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Falha ao cadastrar pessoa.');
+                        return response.json();
+                    })
+                    .then(data => {
+                        this.showFeedback(`Pessoa "${data.nome}" cadastrada com sucesso!`, 'success');
+                        this.newPersonName = ''; // Limpa o campo
+                    })
+                    .catch(error => {
+                        console.error('Erro no POST de pessoa:', error);
+                        this.showFeedback(error.message, 'error');
+                    });
+                },
+
+                // Envia uma nova saudação para a API
+                addGreeting() {
+                    if (!this.newGreetingText.trim()) return; // Não envia se estiver vazio
+                    this.clearFeedback();
+                    
+                    fetch('http://localhost:8080/api/saudacoes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ saudação: this.newGreetingText })
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Falha ao cadastrar saudação.');
+                         // A API de saudação pode não retornar um corpo, então tratamos isso
+                        if (response.headers.get("Content-Length") === "0" || response.status === 204) {
+                           return {}; // Retorna um objeto vazio se não houver conteúdo
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        this.showFeedback('Saudação cadastrada com sucesso!', 'success');
+                        this.newGreetingText = ''; // Limpa o campo
+                    })
+                    .catch(error => {
+                        console.error('Erro no POST de saudação:', error);
+                        this.showFeedback(error.message, 'error');
+                    });
+                },
+
+                // Exibe uma mensagem de feedback e a remove após 4 segundos
+                showFeedback(message, type) {
+                    this.feedback.message = message;
+                    this.feedback.type = type;
+                    setTimeout(() => this.clearFeedback(), 4000);
+                },
+
+                // Limpa a mensagem de feedback
+                clearFeedback() {
+                    this.feedback = { message: '', type: '' };
+                }
+            }
+        }
+    </script>
+</body>
+</html>

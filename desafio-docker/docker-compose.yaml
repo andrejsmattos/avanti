@@ -1,0 +1,21 @@
+services:
+  ms-pessoas:
+    image: andrejsmattos/ms-pessoas-aleatorias:1.0
+    container_name: api-pessoas
+    ports:
+      - "8000:8000"
+
+  ms-saudacoes:
+    image: andrejsmattos/ms-saudacoes-aleatorias:1.0
+    container_name: api-saudacoes
+    ports:
+      - "8080:8080"
+
+  site:
+    image: andrejsmattos/gerador-saudacoes:1.0
+    container_name: site-gerador
+    ports:
+      - "8081:80"
+    depends_on:
+      - ms-pessoas
+      - ms-saudacoes
