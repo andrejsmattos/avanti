@@ -16,6 +16,10 @@ env:
   DOCKER_IMAGE_TAG: 1.0.${{ github.run_id }}
   SERVICE_NAME: saudacoes-aleatorias
 
+defaults:
+  run:
+    working-directory: desafio-cicd/ms-saudacoes-aleatorias
+
 jobs:
   # Job para rodar linters em paralelo
   lint:
