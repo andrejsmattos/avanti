@@ -45,7 +45,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.58 # Use uma versão específica para builds consistentes
+          version: v1.62.2 # Use uma versão específica para builds consistentes
           args: --verbose
           working-directory: desafio-cicd/ms-saudacoes-aleatorias
 
