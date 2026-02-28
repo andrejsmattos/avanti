@@ -1,0 +1,170 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - '*' # Executa em todas as branches
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: # Permite o acionamento manual
+
+env:
+  DOCKER_USER: taotreinatec
+  DOCKER_IMAGE_NAME: ${{ vars.DOCKER_USER || 'taotreinatec' }}/ms-saudacoes-aleatorias
+  DOCKER_IMAGE_TAG: 1.0.${{ github.run_id }}
+  SERVICE_NAME: saudacoes-aleatorias
+
+jobs:
+  # Job para rodar linters em paralelo
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    # Executa este job apenas em branches que não são a 'main'
+    if: github.ref_name != 'main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Go Fmt & Vet
+        run: |
+          echo "Linting code with go fmt and go vet..."
+          go fmt $(go list ./...)
+          go vet $(go list ./...)
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.58 # Use uma versão específica para builds consistentes
+          args: --verbose
+
+  # Job para rodar os testes
+  test:
+    name: Run Go Tests
+    runs-on: ubuntu-latest
+    needs: lint # Executa após o job de lint
+    if: github.ref_name != 'main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Run tests and generate report
+        run: |
+          echo "Running tests and generating report..."
+          # CGO_ENABLED=1 é necessário se houver código C, mas requer gcc.
+          # A imagem ubuntu-latest já tem o gcc.
+          CGO_ENABLED=1 gotestsum --junitfile report.xml --format testname
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always() # Sempre executa este passo, mesmo que o anterior falhe
+        with:
+          name: test-reports
+          path: report.xml
+
+  # Job para build e push da imagem Docker
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    # Executa apenas quando há um push na branch 'main'
+    if: github.event_name == 'push' && github.ref_name == 'main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        # Essencial para builds multi-plataforma (ex: ARM em runners x86)
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        # Cria um builder do Docker que suporta builds multi-plataforma
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }} # Segredo configurado no GitHub
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_IMAGE_TAG }}
+            ${{ env.DOCKER_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Job para fazer o deploy da aplicação
+  deploy:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-and-push # Depende do sucesso do build
+    if: github.event_name == 'push' && github.ref_name == 'main'
+    environment: staging # Define um ambiente (opcional, bom para proteção)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        id: init
+        run: terraform -chdir=infra init
+        env:
+          KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform -chdir=infra validate
+
+      - name: Terraform Apply
+        id: apply
+        run: terraform -chdir=infra apply -auto-approve
+        env:
+          KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
+          TF_VAR_docker_image_name: ${{ env.DOCKER_IMAGE_NAME }}
+          TF_VAR_docker_image_tag: ${{ env.DOCKER_IMAGE_TAG }}
+
+  # Job para destruir a infraestrutura manualmente
+  destroy:
+    name: Destroy Staging
+    runs-on: ubuntu-latest
+    needs: deploy
+    # Executa apenas quando acionado manualmente (workflow_dispatch)
+    if: github.event_name == 'workflow_dispatch'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform -chdir=infra init
+        env:
+          KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
+
+      - name: Terraform Destroy
+        run: terraform -chdir=infra destroy -auto-approve
+        env:
+          KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
