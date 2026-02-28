@@ -147,17 +147,17 @@ jobs:
       - name: Terraform Init
         id: init
         working-directory: desafio-cicd/ms-saudacoes-aleatorias/infra
-        run: terraform -chdir=infra init
+        run: terraform init
         env:
           KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
 
       - name: Terraform Validate
         id: validate
-        run: terraform -chdir=infra validate
+        run: terraform validate
 
       - name: Terraform Apply
         id: apply
-        run: terraform -chdir=infra apply -auto-approve
+        run: terraform apply -auto-approve
         env:
           KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
           TF_VAR_docker_image_name: ${{ env.DOCKER_IMAGE_NAME }}
