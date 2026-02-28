@@ -11,8 +11,8 @@ on:
   workflow_dispatch: # Permite o acionamento manual
 
 env:
-  DOCKER_USER: taotreinatec
-  DOCKER_IMAGE_NAME: ${{ vars.DOCKER_USER || 'taotreinatec' }}/ms-saudacoes-aleatorias
+  DOCKER_USER: andrejsmattos
+  DOCKER_IMAGE_NAME: ${{ vars.DOCKER_USER || 'andrejsmattos' }}/ms-saudacoes-aleatorias
   DOCKER_IMAGE_TAG: 1.0.${{ github.run_id }}
   SERVICE_NAME: saudacoes-aleatorias
 
@@ -47,6 +47,7 @@ jobs:
         with:
           version: v1.58 # Use uma versão específica para builds consistentes
           args: --verbose
+          working-directory: desafio-cicd/ms-saudacoes-aleatorias
 
   # Job para rodar os testes
   test:
