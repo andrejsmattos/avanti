@@ -34,7 +34,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - name: Go Fmt & Vet
         run: |
@@ -125,6 +125,13 @@ jobs:
     if: github.event_name == 'push' && github.ref_name == 'main'
     environment: staging # Define um ambiente (opcional, bom para proteção)
     steps:
+      - name: Debug paths
+        run: |
+          pwd
+          ls -la
+          ls -la infra || true
+          ls -la Dockerfile dockerfile || true
+          
       - name: Checkout code
         uses: actions/checkout@v4
 
