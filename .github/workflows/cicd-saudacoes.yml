@@ -145,18 +145,17 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        id: init
         working-directory: desafio-cicd/ms-saudacoes-aleatorias/infra
         run: terraform init
         env:
           KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
 
       - name: Terraform Validate
-        id: validate
+        working-directory: desafio-cicd/ms-saudacoes-aleatorias/infra
         run: terraform validate
 
       - name: Terraform Apply
-        id: apply
+        working-directory: desafio-cicd/ms-saudacoes-aleatorias/infra
         run: terraform apply -auto-approve
         env:
           KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
