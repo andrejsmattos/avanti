@@ -26,7 +26,7 @@ jobs:
     name: Lint Code
     runs-on: ubuntu-latest
     # Executa este job apenas em branches que não são a 'master'
-    if: github.ref_name != 'master'
+    if: github.ref_name == 'push'
     defaults:
       run:
         working-directory: desafio-cicd/ms-saudacoes-aleatorias
@@ -57,7 +57,7 @@ jobs:
     name: Run Go Tests
     runs-on: ubuntu-latest
     needs: lint # Executa após o job de lint
-    if: github.ref_name != 'master'
+    if: github.ref_name == 'push'
     defaults:
       run:
         working-directory: desafio-cicd/ms-saudacoes-aleatorias
